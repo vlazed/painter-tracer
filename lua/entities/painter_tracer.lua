@@ -80,6 +80,14 @@ function ENT:SetupDataTables()
 	self:NetworkVarNotify("PaintColor", function(entity, name, old, new)
 		self.PaintColor = new:ToColor()
 	end)
+
+	self:NetworkVarNotify("PaintEnabled", function(entity, name, old, new)
+		-- Why -self:GetPaintRate()? This is so that
+		-- `now - self.NextTime > self:GetPaintRate()` evaluates to `now > 0`,
+		-- which is always true
+		-- That means the paint always applies whenever we set this on
+		self.NextTime = -self:GetPaintRate()
+	end)
 end
 
 ---Most code comes from
