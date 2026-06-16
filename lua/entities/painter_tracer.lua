@@ -5,6 +5,12 @@ AddCSLuaFile()
 ---@field SetPaintEnabled fun(self: painter_tracer, paintEnabled: boolean)
 ---@field GetPaintRate fun(self: painter_tracer): paintRate: number
 ---@field SetPaintRate fun(self: painter_tracer, paintRate: number)
+---@field GetCleanEnabled fun(self: painter_tracer): cleanEnabled: boolean
+---@field SetCleanEnabled fun(self: painter_tracer, cleanEnabled: boolean)
+---@field GetCleanEntityEnabled fun(self: painter_tracer): cleanEntityEnabled: boolean
+---@field SetCleanEntityEnabled fun(self: painter_tracer, cleanEntityEnabled: boolean)
+---@field GetCleanScale fun(self: painter_tracer): cleanScale: number
+---@field SetCleanScale fun(self: painter_tracer, cleanScale: number)
 ---@field GetPaintScale fun(self: painter_tracer): paintScale: number
 ---@field SetPaintScale fun(self: painter_tracer, paintScale: number)
 ---@field GetPaintMaterial fun(self: painter_tracer): paintMaterial: string
@@ -71,6 +77,10 @@ function ENT:SetupDataTables()
 	networkVar(self, "String", stringSlot(), "PaintMaterial", { category = "General" })
 	networkVar(self, "Vector", vectorSlot(), "PaintColor", { category = "General" })
 
+	networkVar(self, "Bool", boolSlot(), "CleanEnabled", { category = "Clean" })
+	networkVar(self, "Bool", boolSlot(), "CleanEntityEnabled", { category = "Clean" })
+	networkVar(self, "Float", floatSlot(), "CleanScale", { category = "Clean", min = 0.1, max = 1000 })
+
 	self:NetworkVarNotify("PaintMaterial", function(entity, name, old, new)
 		if CLIENT then
 			self.PaintMaterial = Material(new)
@@ -135,6 +145,29 @@ function ENT:Initialize()
 	self:SetCollisionBounds(mins, maxs)
 end
 
+---@param tr TraceResult
+function ENT:HandleTraceHit(tr)
+	if tr.HitPos then
+		if not self:GetCleanEnabled() and self.PaintMaterial and tr.Entity ~= NULL then
+			return util.DecalEx(
+				self.PaintMaterial,
+				tr.Entity,
+				tr.HitPos,
+				tr.HitNormal,
+				self.PaintColor,
+				self:GetPaintScale(),
+				self:GetPaintScale()
+			)
+		elseif self:GetCleanEnabled() then
+			if self:GetCleanEntityEnabled() and IsValid(tr.Entity) then
+				return tr.Entity:RemoveAllDecals()
+			else
+				return util.RemoveDecalsAt(tr.HitPos, self:GetCleanScale())
+			end
+		end
+	end
+end
+
 function ENT:Think()
 	if CLIENT and self:GetPaintMaterial()[1] and not self.PaintMaterial then
 		self.PaintMaterial = Material(self:GetPaintMaterial())
@@ -149,17 +182,7 @@ function ENT:Think()
 			self.TraceInput.start = start
 			self.TraceInput.endpos = start + self:GetForward() * 10000
 			local tr = util.TraceLine(self.TraceInput)
-			if tr.HitPos and self.PaintMaterial and tr.Entity ~= NULL then
-				util.DecalEx(
-					self.PaintMaterial,
-					tr.Entity,
-					tr.HitPos,
-					tr.HitNormal,
-					self.PaintColor,
-					self:GetPaintScale(),
-					self:GetPaintScale()
-				)
-			end
+			self:HandleTraceHit(tr)
 		end
 	end
 
